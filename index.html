@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Portal Absensi</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --navy: #0f172a; --navy-light: #1e293b; --navy-mid: #334155;
+    --teal: #0ea5e9; --teal-dark: #0284c7; --teal-glow: rgba(14,165,233,0.15);
+    --green: #10b981; --white: #f8fafc; --muted: #94a3b8;
+    --border: rgba(255,255,255,0.08); --card-bg: rgba(30,41,59,0.7);
+    --danger: #ef4444; --font: 'Inter', system-ui, sans-serif;
+  }
+  body { font-family: var(--font); background: var(--navy); color: var(--white); min-height: 100vh; overflow-x: hidden; }
+  .bg-mesh {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background: radial-gradient(ellipse 80% 60% at 20% 10%, rgba(14,165,233,0.12) 0%, transparent 60%),
+                radial-gradient(ellipse 60% 50% at 80% 80%, rgba(16,185,129,0.08) 0%, transparent 60%), var(--navy);
+  }
+  .page { display: none; position: relative; z-index: 1; }
+  .page.active { display: block; }
+
+  /* TOPBAR */
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 28px; border-bottom: 1px solid var(--border);
+    backdrop-filter: blur(12px); background: rgba(15,23,42,0.85);
+    position: sticky; top: 0; z-index: 100;
+  }
+  .logo { display: flex; align-items: center; gap: 10px; }
+  .logo-icon {
+    width: 36px; height: 36px; border-radius: 9px;
+    background: linear-gradient(135deg, var(--teal), var(--green));
+    display: flex; align-items: center; justify-content: center; font-size: 18px;
+  }
+  .logo-text { font-weight: 700; font-size: 15px; letter-spacing: -0.3px; }
+  .logo-sub { font-size: 11px; color: var(--muted); }
+  .topbar-actions { display: flex; gap: 8px; align-items: center; }
+
+  /* STEPS */
+  .steps { display: flex; align-items: center; margin-bottom: 36px; }
+  .step-item { display: flex; align-items: center; gap: 8px; }
+  .step-num {
+    width: 30px; height: 30px; border-radius: 50%;
+    background: var(--navy-light); border: 1.5px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 600; color: var(--muted); transition: all 0.3s;
+  }
+  .step-item.done .step-num { background: var(--green); border-color: var(--green); color: #fff; }
+  .step-item.active .step-num { background: var(--teal); border-color: var(--teal); color: #fff; box-shadow: 0 0 14px rgba(14,165,233,0.4); }
+  .step-label { font-size: 13px; font-weight: 500; color: var(--muted); }
+  .step-item.done .step-label, .step-item.active .step-label { color: var(--white); }
+  .step-line { flex: 1; height: 1.5px; background: var(--border); margin: 0 10px; max-width: 56px; }
+  .step-item.done + .step-line { background: var(--green); }
+
+  /* SECTION */
+  .section-wrap { max-width: 860px; margin: 0 auto; padding: 28px 20px 80px; }
+  .section-title { font-size: 24px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 5px; }
+  .section-sub { font-size: 13px; color: var(--muted); margin-bottom: 28px; }
+
+  /* BREADCRUMB */
+  .breadcrumb { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); padding: 16px 28px 0; }
+  .breadcrumb span { color: var(--teal); font-weight: 500; }
+
+  /* CARDS */
+  .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; }
+  .card-btn {
+    background: var(--card-bg); border: 1.5px solid var(--border); border-radius: 14px;
+    padding: 22px 18px; cursor: pointer; transition: all 0.2s; text-align: left;
+    backdrop-filter: blur(8px); position: relative; overflow: hidden;
+  }
+  .card-btn::before {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(135deg, var(--teal-glow), transparent);
+    opacity: 0; transition: opacity 0.2s;
+  }
+  .card-btn:hover { border-color: var(--teal); transform: translateY(-3px); box-shadow: 0 10px 28px rgba(0,0,0,0.3); }
+  .card-btn:hover::before { opacity: 1; }
+  .card-icon { font-size: 26px; margin-bottom: 12px; display: block; }
+  .card-name { font-size: 14px; font-weight: 600; margin-bottom: 3px; }
+  .card-meta { font-size: 11px; color: var(--muted); }
+  .card-arrow { position: absolute; right: 15px; top: 50%; transform: translateY(-50%); color: var(--teal); opacity: 0; transition: all 0.2s; font-size: 17px; }
+  .card-btn:hover .card-arrow { opacity: 1; right: 13px; }
+
+  /* DIVISI */
+  .divisi-grid { display: flex; flex-direction: column; gap: 9px; }
+  .divisi-card {
+    background: var(--card-bg); border: 1.5px solid var(--border); border-radius: 12px;
+    padding: 18px 20px; cursor: pointer; transition: all 0.2s; backdrop-filter: blur(8px);
+    display: flex; align-items: center; gap: 14px; position: relative; overflow: hidden;
+  }
+  .divisi-card::before { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, var(--teal-glow), transparent); opacity: 0; transition: opacity 0.2s; }
+  .divisi-card:hover { border-color: var(--teal); transform: translateY(-2px); }
+  .divisi-card:hover::before { opacity: 1; }
+  .divisi-dot { width: 9px; height: 9px; border-radius: 50%; background: linear-gradient(135deg, var(--teal), var(--green)); flex-shrink: 0; }
+  .divisi-name { font-size: 14px; font-weight: 600; flex: 1; }
+  .divisi-arrow { color: var(--teal); font-size: 17px; }
+
+  /* BUTTONS */
+  .btn-back {
+    display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px;
+    border-radius: 8px; background: transparent; border: 1.5px solid var(--border);
+    color: var(--muted); font-size: 13px; font-weight: 500; cursor: pointer;
+    transition: all 0.2s; font-family: var(--font);
+  }
+  .btn-back:hover { border-color: var(--teal); color: var(--white); background: var(--teal-glow); }
+  .btn-primary {
+    display: inline-flex; align-items: center; gap: 7px; padding: 10px 18px;
+    border-radius: 9px; background: var(--teal); border: none;
+    color: #fff; font-size: 13px; font-weight: 600; cursor: pointer;
+    transition: all 0.2s; font-family: var(--font);
+  }
+  .btn-primary:hover { background: var(--teal-dark); box-shadow: 0 4px 14px rgba(14,165,233,0.35); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-danger {
+    display: inline-flex; align-items: center; gap: 6px; padding: 8px 13px;
+    border-radius: 8px; background: rgba(239,68,68,0.12); border: 1.5px solid rgba(239,68,68,0.3);
+    color: var(--danger); font-size: 13px; font-weight: 500; cursor: pointer;
+    transition: all 0.2s; font-family: var(--font);
+  }
+  .btn-danger:hover { background: rgba(239,68,68,0.2); border-color: var(--danger); }
+  .btn-sm { padding: 6px 11px; font-size: 12px; border-radius: 6px; }
+
+  /* SETTINGS */
+  .settings-wrap { max-width: 860px; margin: 0 auto; padding: 28px 20px 80px; }
+  .settings-section { margin-bottom: 32px; }
+  .settings-section-title { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+  .outlet-row { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 13px 16px; display: flex; align-items: center; gap: 12px; margin-bottom: 9px; backdrop-filter: blur(8px); }
+  .outlet-row-info { flex: 1; }
+  .outlet-row-name { font-size: 14px; font-weight: 600; }
+  .outlet-row-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .outlet-row-actions { display: flex; gap: 7px; flex-wrap: wrap; }
+  .divisi-row { background: rgba(15,23,42,0.5); border: 1px solid var(--border); border-radius: 8px; padding: 9px 13px; display: flex; align-items: center; gap: 10px; margin-bottom: 5px; }
+  .divisi-row-name { font-size: 13px; font-weight: 500; flex: 1; }
+  .divisi-row-link { font-size: 11px; color: var(--teal); max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .divisi-row-actions { display: flex; gap: 5px; }
+  .expand-outlet { display: none; padding: 8px 0 2px 18px; }
+  .expand-outlet.open { display: block; }
+  .expand-btn { background: none; border: none; cursor: pointer; color: var(--teal); font-size: 12px; font-weight: 600; font-family: var(--font); display: flex; align-items: center; gap: 4px; }
+  .no-link { color: var(--muted); font-size: 11px; font-style: italic; }
+  .link-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 5px; background: rgba(14,165,233,0.1); border: 1px solid rgba(14,165,233,0.2); font-size: 11px; color: var(--teal); max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* LOGIN */
+  .login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; position: relative; z-index: 1; }
+  .login-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 20px; padding: 38px; width: 100%; max-width: 370px; backdrop-filter: blur(12px); }
+  .login-logo { text-align: center; margin-bottom: 26px; }
+  .login-logo .logo-icon { margin: 0 auto 10px; width: 50px; height: 50px; font-size: 24px; }
+  .login-logo h2 { font-size: 19px; font-weight: 700; }
+  .login-logo p { font-size: 13px; color: var(--muted); margin-top: 4px; }
+  .alert { border-radius: 8px; padding: 10px 13px; margin-bottom: 14px; font-size: 13px; display: none; }
+  .alert.show { display: block; }
+  .alert-error { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25); color: var(--danger); }
+  .alert-success { background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.25); color: var(--green); }
+
+  /* FORMS */
+  .form-group { margin-bottom: 16px; }
+  .form-label { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; display: block; }
+  .form-input { width: 100%; padding: 10px 13px; border-radius: 9px; background: var(--navy); border: 1.5px solid var(--border); color: var(--white); font-size: 14px; font-family: var(--font); outline: none; transition: border-color 0.2s; }
+  .form-input:focus { border-color: var(--teal); }
+  .form-input::placeholder { color: var(--muted); }
+
+  /* MODAL */
+  .modal-overlay { position: fixed; inset: 0; z-index: 9000; background: rgba(0,0,0,0.72); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; padding: 20px; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+  .modal-overlay.open { opacity: 1; pointer-events: all; }
+  .modal { background: var(--navy-light); border: 1px solid var(--border); border-radius: 18px; padding: 30px; width: 100%; max-width: 450px; transform: scale(0.95); transition: transform 0.2s; }
+  .modal-overlay.open .modal { transform: scale(1); }
+  .modal-title { font-size: 17px; font-weight: 700; margin-bottom: 5px; }
+  .modal-sub { font-size: 13px; color: var(--muted); margin-bottom: 22px; }
+  .modal-actions { display: flex; gap: 9px; justify-content: flex-end; margin-top: 22px; }
+
+  /* TOAST */
+  .toast { position: fixed; bottom: 24px; right: 24px; z-index: 9999; background: var(--navy-light); border: 1px solid var(--border); border-radius: 12px; padding: 13px 18px; display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 500; box-shadow: 0 10px 36px rgba(0,0,0,0.4); transform: translateX(120%); transition: transform 0.3s; max-width: 300px; }
+  .toast.show { transform: translateX(0); }
+
+  /* LOADING */
+  .loading-screen { position: fixed; inset: 0; z-index: 99999; background: var(--navy); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; }
+  .spinner { width: 40px; height: 40px; border: 3px solid var(--border); border-top-color: var(--teal); border-radius: 50%; animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text { font-size: 14px; color: var(--muted); }
+
+  /* FIREBASE CONFIG SETUP */
+  .setup-card { background: var(--card-bg); border: 2px dashed rgba(14,165,233,0.4); border-radius: 16px; padding: 32px; text-align: center; max-width: 500px; margin: 0 auto; }
+  .setup-card h3 { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+  .setup-card p { font-size: 13px; color: var(--muted); margin-bottom: 24px; line-height: 1.6; }
+  .setup-steps { text-align: left; margin-bottom: 24px; }
+  .setup-step { display: flex; gap: 12px; margin-bottom: 12px; font-size: 13px; }
+  .setup-step-num { width: 22px; height: 22px; border-radius: 50%; background: var(--teal); color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+  .code-block { background: var(--navy); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; font-family: monospace; font-size: 12px; color: var(--teal); text-align: left; margin: 8px 0; line-height: 1.6; word-break: break-all; }
+
+  .empty-state { text-align: center; padding: 36px 20px; color: var(--muted); font-size: 14px; }
+  .empty-state-icon { font-size: 34px; margin-bottom: 9px; }
+
+  @media (max-width: 600px) {
+    .topbar { padding: 13px 14px; }
+    .section-wrap, .settings-wrap { padding: 18px 12px 60px; }
+    .breadcrumb { padding: 13px 14px 0; }
+    .cards-grid { grid-template-columns: repeat(auto-fill, minmax(145px, 1fr)); }
+    .step-label { display: none; }
+    .outlet-row { flex-wrap: wrap; }
+  }
+</style>
+</head>
+<body>
+<div class="bg-mesh"></div>
+
+<!-- LOADING -->
+<div class="loading-screen" id="loadingScreen">
+  <div class="spinner"></div>
+  <div class="loading-text">Memuat portal...</div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast">
+  <span id="toastIcon">✅</span>
+  <span id="toastText"></span>
+</div>
+
+<!-- ===== FIREBASE SETUP PAGE ===== -->
+<div class="page" id="pageSetup">
+  <div class="topbar">
+    <div class="logo">
+      <div class="logo-icon">🏢</div>
+      <div><div class="logo-text">Portal Absensi</div><div class="logo-sub">Setup Firebase</div></div>
+    </div>
+  </div>
+  <div class="section-wrap" style="max-width:600px;">
+    <div class="setup-card">
+      <div style="font-size:40px;margin-bottom:14px;">🔥</div>
+      <h3>Config Firebase Belum Diisi</h3>
+      <p>Buka file <code style="background:rgba(255,255,255,0.08);padding:2px 7px;border-radius:4px;font-size:12px;">index.html</code> dengan text editor, cari bagian <code style="background:rgba(255,255,255,0.08);padding:2px 7px;border-radius:4px;font-size:12px;">FIREBASE_CONFIG</code> di awal script, isi dengan nilai dari Firebase Console kamu, lalu re-upload ke GitHub.<br/><br/>
+      <span style="color:var(--teal);font-weight:600;">Atau paste di sini untuk coba sementara</span> — tidak permanen, tiap device baru tetap harus isi ulang.</p>
+      <div class="form-group" style="text-align:left;">
+        <label class="form-label">Firebase Config (JSON — semua key harus pakai tanda kutip)</label>
+        <textarea class="form-input" id="firebaseConfigInput" rows="9" placeholder='{
+  "apiKey": "AIza...",
+  "authDomain": "project-id.firebaseapp.com",
+  "databaseURL": "https://project-id-default-rtdb.asia-southeast1.firebasedatabase.app",
+  "projectId": "project-id",
+  "storageBucket": "project-id.firebasestorage.app",
+  "messagingSenderId": "123456789",
+  "appId": "1:123:web:abc"
+}' style="font-family:monospace;font-size:12px;resize:vertical;min-height:180px;"></textarea>
+      </div>
+      <button class="btn-primary" style="width:100%;justify-content:center;" onclick="saveFirebaseConfig()">🚀 Coba Hubungkan</button>
+      <div class="alert alert-error" id="setupError" style="margin-top:12px;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== PORTAL: OUTLET ===== -->
+<div class="page" id="pageOutlet">
+  <div class="topbar">
+    <div class="logo">
+      <div class="logo-icon">🏢</div>
+      <div><div class="logo-text">Portal Absensi</div><div class="logo-sub">Pilih outlet & divisi</div></div>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn-back btn-sm" onclick="showPage('pageLogin')">⚙️ Settings</button>
+    </div>
+  </div>
+  <div class="section-wrap">
+    <div class="steps">
+      <div class="step-item active"><div class="step-num">1</div><div class="step-label">Pilih Outlet</div></div>
+      <div class="step-line"></div>
+      <div class="step-item"><div class="step-num">2</div><div class="step-label">Pilih Divisi</div></div>
+      <div class="step-line"></div>
+      <div class="step-item"><div class="step-num">3</div><div class="step-label">Absen</div></div>
+    </div>
+    <div class="section-title">Pilih Outlet</div>
+    <div class="section-sub">Klik outlet tempat kamu bekerja hari ini</div>
+    <div class="cards-grid" id="outletList"></div>
+    <div class="empty-state" id="outletEmpty" style="display:none;">
+      <div class="empty-state-icon">🏪</div>
+      Belum ada outlet.<br/>Hubungi HR Admin untuk setup portal.
+    </div>
+  </div>
+</div>
+
+<!-- ===== PORTAL: DIVISI ===== -->
+<div class="page" id="pageDivisi">
+  <div class="topbar">
+    <div class="logo">
+      <div class="logo-icon">🏢</div>
+      <div><div class="logo-text">Portal Absensi</div><div class="logo-sub" id="divisiOutletLabel">—</div></div>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn-back btn-sm" onclick="showPage('pageLogin')">⚙️ Settings</button>
+    </div>
+  </div>
+  <div class="breadcrumb"><span id="breadOutlet">Outlet</span><span style="opacity:.4">›</span> Pilih Divisi</div>
+  <div class="section-wrap">
+    <div class="steps">
+      <div class="step-item done"><div class="step-num">✓</div><div class="step-label">Pilih Outlet</div></div>
+      <div class="step-line" style="background:var(--green)"></div>
+      <div class="step-item active"><div class="step-num">2</div><div class="step-label">Pilih Divisi</div></div>
+      <div class="step-line"></div>
+      <div class="step-item"><div class="step-num">3</div><div class="step-label">Absen</div></div>
+    </div>
+    <div class="section-title">Pilih Divisi</div>
+    <div class="section-sub">Klik divisi kamu, form absensi akan terbuka otomatis</div>
+    <div class="divisi-grid" id="divisiList"></div>
+    <div class="empty-state" id="divisiEmpty" style="display:none;">
+      <div class="empty-state-icon">👥</div>
+      Belum ada divisi di outlet ini.
+    </div>
+    <br/><button class="btn-back" onclick="showPortal()">← Ganti Outlet</button>
+  </div>
+</div>
+
+<!-- ===== LOGIN ===== -->
+<div class="page" id="pageLogin">
+  <div class="login-wrap">
+    <div class="login-card">
+      <div class="login-logo">
+        <div class="logo-icon">⚙️</div>
+        <h2>HR Admin Login</h2>
+        <p>Akses Settings Portal Absensi</p>
+      </div>
+      <div class="alert alert-error" id="loginError"></div>
+      <div class="form-group">
+        <label class="form-label">Username</label>
+        <input class="form-input" id="loginUser" type="text" placeholder="Username"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input class="form-input" id="loginPass" type="password" placeholder="Password"/>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:6px;">
+        <button class="btn-back" onclick="showPortal()" style="flex:1;justify-content:center;">← Portal</button>
+        <button class="btn-primary" id="loginBtn" onclick="doLogin()" style="flex:1;justify-content:center;">Masuk →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SETTINGS ===== -->
+<div class="page" id="pageSettings">
+  <div class="topbar">
+    <div class="logo">
+      <div class="logo-icon">⚙️</div>
+      <div><div class="logo-text">Settings</div><div class="logo-sub">HR Admin Panel</div></div>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn-back btn-sm" onclick="showPortal()">← Portal</button>
+      <button class="btn-danger btn-sm" onclick="doLogout()">Logout</button>
+    </div>
+  </div>
+  <div class="settings-wrap">
+    <div class="settings-section">
+      <div class="settings-section-title">📍 Outlet & Divisi</div>
+      <button class="btn-primary" onclick="openModal('modalAddOutlet')" style="margin-bottom:14px;">+ Tambah Outlet</button>
+      <div id="settingsOutletList"></div>
+      <div class="empty-state" id="settingsEmpty" style="display:none;"><div class="empty-state-icon">🏪</div>Belum ada outlet.</div>
+    </div>
+    <div class="settings-section">
+      <div class="settings-section-title">🔐 Akun HR Admin</div>
+      <div class="outlet-row">
+        <div class="outlet-row-info">
+          <div class="outlet-row-name" id="displayUsername">—</div>
+          <div class="outlet-row-meta">HR Administrator</div>
+        </div>
+        <button class="btn-back btn-sm" onclick="openModal('modalChangePass')">🔑 Ganti Password</button>
+      </div>
+    </div>
+    <div class="settings-section">
+      <div class="settings-section-title">🔥 Firebase</div>
+      <div class="outlet-row">
+        <div class="outlet-row-info">
+          <div class="outlet-row-name">Konfigurasi Firebase</div>
+          <div class="outlet-row-meta" id="firebaseStatusLabel">—</div>
+        </div>
+        <button class="btn-back btn-sm" onclick="resetFirebase()">🔄 Reset Config</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODALS ===== -->
+
+<div class="modal-overlay" id="modalAddOutlet">
+  <div class="modal">
+    <div class="modal-title">Tambah Outlet</div>
+    <div class="modal-sub">Outlet baru akan tampil di portal staff</div>
+    <div class="form-group"><label class="form-label">Nama Outlet</label><input class="form-input" id="inputOutletName" type="text" placeholder="cth: Outlet Sudirman"/></div>
+    <div class="form-group"><label class="form-label">Ikon Emoji (opsional)</label><input class="form-input" id="inputOutletIcon" type="text" placeholder="🏪" maxlength="4"/></div>
+    <div class="modal-actions">
+      <button class="btn-back" onclick="closeModal('modalAddOutlet')">Batal</button>
+      <button class="btn-primary" onclick="addOutlet()">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalEditOutlet">
+  <div class="modal">
+    <div class="modal-title">Edit Outlet</div>
+    <div class="modal-sub">Ubah nama atau ikon outlet</div>
+    <input type="hidden" id="editOutletId"/>
+    <div class="form-group"><label class="form-label">Nama Outlet</label><input class="form-input" id="editOutletName" type="text"/></div>
+    <div class="form-group"><label class="form-label">Ikon Emoji</label><input class="form-input" id="editOutletIcon" type="text" maxlength="4"/></div>
+    <div class="modal-actions">
+      <button class="btn-back" onclick="closeModal('modalEditOutlet')">Batal</button>
+      <button class="btn-primary" onclick="saveEditOutlet()">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalAddDivisi">
+  <div class="modal">
+    <div class="modal-title">Tambah Divisi</div>
+    <div class="modal-sub">Outlet: <strong id="addDivisiOutletLabel">—</strong></div>
+    <input type="hidden" id="addDivisiOutletKey"/>
+    <div class="form-group"><label class="form-label">Nama Divisi</label><input class="form-input" id="inputDivisiName" type="text" placeholder="cth: Kitchen, Kasir, Security"/></div>
+    <div class="form-group"><label class="form-label">Link Google Form Absensi</label><input class="form-input" id="inputDivisiLink" type="url" placeholder="https://docs.google.com/forms/..."/></div>
+    <div class="modal-actions">
+      <button class="btn-back" onclick="closeModal('modalAddDivisi')">Batal</button>
+      <button class="btn-primary" onclick="addDivisi()">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalEditDivisi">
+  <div class="modal">
+    <div class="modal-title">Edit Divisi</div>
+    <div class="modal-sub">Ubah nama atau ganti link form absensi</div>
+    <input type="hidden" id="editDivisiOutletKey"/>
+    <input type="hidden" id="editDivisiKey"/>
+    <div class="form-group"><label class="form-label">Nama Divisi</label><input class="form-input" id="editDivisiName" type="text"/></div>
+    <div class="form-group"><label class="form-label">Link Google Form</label><input class="form-input" id="editDivisiLink" type="url"/></div>
+    <div class="modal-actions">
+      <button class="btn-back" onclick="closeModal('modalEditDivisi')">Batal</button>
+      <button class="btn-primary" onclick="saveEditDivisi()">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalChangePass">
+  <div class="modal">
+    <div class="modal-title">Ganti Password</div>
+    <div class="modal-sub">Password minimal 6 karakter</div>
+    <div class="form-group"><label class="form-label">Password Lama</label><input class="form-input" id="oldPass" type="password"/></div>
+    <div class="form-group"><label class="form-label">Password Baru</label><input class="form-input" id="newPass" type="password"/></div>
+    <div class="form-group"><label class="form-label">Konfirmasi Password Baru</label><input class="form-input" id="confirmPass" type="password"/></div>
+    <div class="alert alert-error" id="passError"></div>
+    <div class="modal-actions">
+      <button class="btn-back" onclick="closeModal('modalChangePass')">Batal</button>
+      <button class="btn-primary" onclick="changePassword()">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalConfirmDelete">
+  <div class="modal">
+    <div class="modal-title">⚠️ Konfirmasi Hapus</div>
+    <div class="modal-sub" id="confirmDeleteMsg">Yakin?</div>
+    <div class="modal-actions">
+      <button class="btn-back" onclick="closeModal('modalConfirmDelete')">Batal</button>
+      <button class="btn-danger" id="confirmDeleteBtn">Ya, Hapus</button>
+    </div>
+  </div>
+</div>
+
+<!-- Firebase SDKs -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, set, get, update, remove, onValue, child }
+  from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+// ============ GLOBALS ============
+window._fb = { app: null, db: null };
+window._loggedIn = false;
+window._selectedOutletKey = null;
+window._outlets = {};
+
+// ============ FIREBASE INIT ============
+window.initFirebase = async function(config) {
+  try {
+    if (window._fb.app) {
+      // already init
+    } else {
+      window._fb.app = initializeApp(config);
+      window._fb.db = getDatabase(window._fb.app);
+    }
+
+    // Check connection by reading root
+    const snap = await get(ref(window._fb.db, '/'));
+    return true;
+  } catch(e) {
+    console.error(e);
+    return false;
+  }
+};
+
+// ============ DB HELPERS ============
+window.dbSet = async (path, val) => await set(ref(window._fb.db, path), val);
+window.dbGet = async (path) => { const s = await get(ref(window._fb.db, path)); return s.exists() ? s.val() : null; };
+window.dbUpdate = async (path, val) => await update(ref(window._fb.db, path), val);
+window.dbDelete = async (path) => await remove(ref(window._fb.db, path));
+window.dbListen = (path, cb) => onValue(ref(window._fb.db, path), snap => cb(snap.exists() ? snap.val() : null));
+
+// ============ FIREBASE CONFIG — EDIT BAGIAN INI ============
+// Paste config Firebase kamu di sini (ganti semua nilai di bawah)
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBV3wG9SHDouBXJctQ_U7pEyZWvUhbf_4A",
+  authDomain: "portal-absensi.firebaseapp.com",
+  databaseURL: "https://portal-absensi-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "portal-absensi",
+  storageBucket: "portal-absensi.firebasestorage.app",
+  messagingSenderId: "794425702187",
+  appId: "1:794425702187:web:a4d1e9dab143aaf18c376e",
+  measurementId: "G-3GGSBPBHVW"
+};
+// ============================================================
+
+window.bootApp = async function() {
+  document.getElementById('loadingScreen').style.display = 'flex';
+
+  // Cek apakah config sudah diisi (bukan placeholder)
+  if (FIREBASE_CONFIG.apiKey.startsWith('GANTI')) {
+    hideLoading();
+    showPage('pageSetup');
+    return;
+  }
+
+  const ok = await window.initFirebase(FIREBASE_CONFIG);
+  if (!ok) {
+    hideLoading();
+    showPage('pageSetup');
+    document.getElementById('setupError').textContent = 'Gagal terhubung ke Firebase. Cek config di dalam file HTML.';
+    document.getElementById('setupError').classList.add('show');
+    return;
+  }
+
+  // Init default admin if none
+  const admin = await window.dbGet('admin');
+  if (!admin) {
+    await window.dbSet('admin', { username: 'hradmin', password: 'admin123' });
+  }
+
+  // Listen outlets realtime
+  window.dbListen('outlets', (data) => {
+    window._outlets = data || {};
+    if (document.getElementById('pageOutlet').classList.contains('active')) renderOutlets();
+    if (document.getElementById('pageSettings').classList.contains('active')) renderSettings();
+    if (document.getElementById('pageDivisi').classList.contains('active') && window._selectedOutletKey) {
+      const outlet = window._outlets[window._selectedOutletKey];
+      if (outlet) renderDivisi(outlet);
+    }
+  });
+
+  hideLoading();
+  showPortal();
+  document.getElementById('firebaseStatusLabel').textContent = FIREBASE_CONFIG.projectId || 'Terhubung';
+};
+
+// ============ SETUP PAGE — hanya muncul kalau config belum diisi di file ============
+window.saveFirebaseConfig = async function() {
+  const raw = document.getElementById('firebaseConfigInput').value.trim();
+  const err = document.getElementById('setupError');
+  err.classList.remove('show');
+  let config;
+  try { config = JSON.parse(raw); } catch {
+    err.textContent = 'Format JSON tidak valid. Pastikan semua key pakai tanda kutip "seperti ini".';
+    err.classList.add('show'); return;
+  }
+  if (!config.databaseURL) {
+    err.textContent = 'Field "databaseURL" wajib ada. Pastikan Realtime Database sudah diaktifkan.';
+    err.classList.add('show'); return;
+  }
+
+  const ok = await window.initFirebase(config);
+  if (!ok) {
+    err.textContent = 'Gagal terhubung. Periksa config & pastikan Rules Firebase sudah diset ke true.';
+    err.classList.add('show'); return;
+  }
+
+  const admin = await window.dbGet('admin');
+  if (!admin) await window.dbSet('admin', { username: 'hradmin', password: 'admin123' });
+
+  window.dbListen('outlets', (data) => {
+    window._outlets = data || {};
+    if (document.getElementById('pageOutlet').classList.contains('active')) renderOutlets();
+    if (document.getElementById('pageSettings').classList.contains('active')) renderSettings();
+  });
+
+  // Tampilkan instruksi untuk hardcode config ke file
+  err.style.cssText = 'display:block;background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.25);color:#10b981;border-radius:8px;padding:12px 14px;margin-top:12px;font-size:13px;line-height:1.6;';
+  err.innerHTML = `✅ Terhubung! Tapi agar HP lain langsung bisa akses tanpa setup ini, <strong>edit file HTML-mu</strong> dan isi bagian <code>FIREBASE_CONFIG</code> di baris paling atas script dengan nilai config ini, lalu re-upload ke GitHub.`;
+  err.classList.add('show');
+
+  showToast('✅', 'Firebase terhubung untuk sesi ini!');
+  setTimeout(() => showPortal(), 2500);
+  document.getElementById('firebaseStatusLabel').textContent = config.projectId || 'Terhubung';
+};
+
+window.resetFirebase = function() {
+  showPage('pageSetup');
+};
+
+// ============ NAVIGATION ============
+window.showPage = function(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0,0);
+};
+
+window.showPortal = function() { renderOutlets(); showPage('pageOutlet'); };
+window.hideLoading = function() { document.getElementById('loadingScreen').style.display = 'none'; };
+
+// ============ LOGIN ============
+window.doLogin = async function() {
+  const u = document.getElementById('loginUser').value.trim();
+  const p = document.getElementById('loginPass').value;
+  const err = document.getElementById('loginError');
+  const btn = document.getElementById('loginBtn');
+  err.classList.remove('show');
+  btn.disabled = true; btn.textContent = 'Memeriksa...';
+
+  const admin = await window.dbGet('admin');
+  btn.disabled = false; btn.textContent = 'Masuk →';
+
+  if (admin && u === admin.username && p === admin.password) {
+    window._loggedIn = true;
+    document.getElementById('loginUser').value = '';
+    document.getElementById('loginPass').value = '';
+    document.getElementById('displayUsername').textContent = admin.username;
+    renderSettings();
+    showPage('pageSettings');
+  } else {
+    err.textContent = 'Username atau password salah.';
+    err.classList.add('show');
+  }
+};
+
+document.getElementById('loginPass').addEventListener('keydown', e => { if(e.key==='Enter') window.doLogin(); });
+document.getElementById('loginUser').addEventListener('keydown', e => { if(e.key==='Enter') window.doLogin(); });
+
+window.doLogout = function() { window._loggedIn = false; showPortal(); };
+
+// ============ RENDER PORTAL ============
+window.renderOutlets = function() {
+  const list = document.getElementById('outletList');
+  const empty = document.getElementById('outletEmpty');
+  list.innerHTML = '';
+  const outlets = window._outlets;
+  const keys = Object.keys(outlets);
+  if (!keys.length) { list.style.display='none'; empty.style.display='block'; return; }
+  list.style.display = 'grid'; empty.style.display = 'none';
+  keys.forEach(k => {
+    const o = outlets[k];
+    const divCount = o.divisi ? Object.keys(o.divisi).length : 0;
+    const btn = document.createElement('div');
+    btn.className = 'card-btn';
+    btn.innerHTML = `<span class="card-icon">${esc(o.icon||'🏪')}</span><div class="card-name">${esc(o.name)}</div><div class="card-meta">${divCount} divisi tersedia</div><span class="card-arrow">›</span>`;
+    btn.onclick = () => selectOutlet(k);
+    list.appendChild(btn);
+  });
+};
+
+window.selectOutlet = function(key) {
+  window._selectedOutletKey = key;
+  const outlet = window._outlets[key];
+  if (!outlet) return;
+  document.getElementById('divisiOutletLabel').textContent = outlet.name;
+  document.getElementById('breadOutlet').textContent = outlet.name;
+  renderDivisi(outlet);
+  showPage('pageDivisi');
+};
+
+window.renderDivisi = function(outlet) {
+  const list = document.getElementById('divisiList');
+  const empty = document.getElementById('divisiEmpty');
+  list.innerHTML = '';
+  const divs = outlet.divisi || {};
+  const keys = Object.keys(divs);
+  if (!keys.length) { list.style.display='none'; empty.style.display='block'; return; }
+  list.style.display = 'flex'; empty.style.display = 'none';
+  keys.forEach(k => {
+    const d = divs[k];
+    const card = document.createElement('div');
+    card.className = 'divisi-card';
+    card.innerHTML = `<div class="divisi-dot"></div><div class="divisi-name">${esc(d.name)}</div><div class="divisi-arrow">›</div>`;
+    card.onclick = () => {
+      if (!d.link) { showToast('❌', `Link divisi "${d.name}" belum diisi.`); return; }
+      window.open(d.link, '_blank');
+    };
+    list.appendChild(card);
+  });
+};
+
+// ============ SETTINGS RENDER ============
+window.renderSettings = function() {
+  const container = document.getElementById('settingsOutletList');
+  const empty = document.getElementById('settingsEmpty');
+  container.innerHTML = '';
+  const outlets = window._outlets;
+  const keys = Object.keys(outlets);
+  if (!keys.length) { empty.style.display='block'; return; }
+  empty.style.display = 'none';
+
+  keys.forEach(k => {
+    const o = outlets[k];
+    const divs = o.divisi || {};
+    const divKeys = Object.keys(divs);
+    const wrap = document.createElement('div');
+    wrap.style.marginBottom = '12px';
+
+    let divisiRows = '';
+    divKeys.forEach(dk => {
+      const d = divs[dk];
+      const linkDisplay = d.link
+        ? `<span class="link-badge">🔗 ${esc(d.link.replace('https://',''))}</span>`
+        : `<span class="no-link">— belum ada link</span>`;
+      divisiRows += `
+        <div class="divisi-row">
+          <div style="width:7px;height:7px;border-radius:50%;background:var(--teal);flex-shrink:0;"></div>
+          <div class="divisi-row-name">${esc(d.name)}</div>
+          ${linkDisplay}
+          <div class="divisi-row-actions">
+            <button class="btn-back btn-sm" onclick="openEditDivisi('${k}','${dk}')">✏️</button>
+            <button class="btn-danger btn-sm" onclick="confirmDeleteDivisi('${k}','${dk}','${esc(d.name)}')">✕</button>
+          </div>
+        </div>`;
+    });
+
+    wrap.innerHTML = `
+      <div class="outlet-row">
+        <div style="font-size:20px;">${esc(o.icon||'🏪')}</div>
+        <div class="outlet-row-info">
+          <div class="outlet-row-name">${esc(o.name)}</div>
+          <div class="outlet-row-meta">${divKeys.length} divisi</div>
+        </div>
+        <div class="outlet-row-actions">
+          <button class="expand-btn" onclick="toggleExpand('exp_${k}',this)">▼ Divisi</button>
+          <button class="btn-primary btn-sm" onclick="openAddDivisi('${k}','${esc(o.name)}')">+ Divisi</button>
+          <button class="btn-back btn-sm" onclick="openEditOutlet('${k}')">✏️</button>
+          <button class="btn-danger btn-sm" onclick="confirmDeleteOutlet('${k}','${esc(o.name)}')">✕</button>
+        </div>
+      </div>
+      <div class="expand-outlet" id="exp_${k}">
+        ${divisiRows || '<div style="color:var(--muted);font-size:13px;padding:4px 0 8px;">Belum ada divisi.</div>'}
+      </div>`;
+    container.appendChild(wrap);
+  });
+};
+
+window.toggleExpand = function(id, btn) {
+  const el = document.getElementById(id);
+  el.classList.toggle('open');
+  btn.textContent = el.classList.contains('open') ? '▲ Divisi' : '▼ Divisi';
+};
+
+// ============ OUTLET CRUD ============
+window.addOutlet = async function() {
+  const name = document.getElementById('inputOutletName').value.trim();
+  const icon = document.getElementById('inputOutletIcon').value.trim() || '🏪';
+  if (!name) { showToast('⚠️','Nama outlet wajib diisi'); return; }
+  const key = uid();
+  await window.dbSet(`outlets/${key}`, { name, icon, divisi: {} });
+  closeModal('modalAddOutlet');
+  document.getElementById('inputOutletName').value='';
+  document.getElementById('inputOutletIcon').value='';
+  showToast('✅', `Outlet "${name}" ditambah`);
+};
+
+window.openEditOutlet = function(key) {
+  const o = window._outlets[key];
+  if (!o) return;
+  document.getElementById('editOutletId').value = key;
+  document.getElementById('editOutletName').value = o.name;
+  document.getElementById('editOutletIcon').value = o.icon||'🏪';
+  openModal('modalEditOutlet');
+};
+
+window.saveEditOutlet = async function() {
+  const key = document.getElementById('editOutletId').value;
+  const name = document.getElementById('editOutletName').value.trim();
+  const icon = document.getElementById('editOutletIcon').value.trim()||'🏪';
+  if (!name) { showToast('⚠️','Nama tidak boleh kosong'); return; }
+  await window.dbUpdate(`outlets/${key}`, { name, icon });
+  closeModal('modalEditOutlet');
+  showToast('✅','Outlet diupdate');
+};
+
+window.confirmDeleteOutlet = function(key, name) {
+  document.getElementById('confirmDeleteMsg').textContent = `Hapus outlet "${name}" beserta semua divisinya?`;
+  document.getElementById('confirmDeleteBtn').onclick = () => deleteOutlet(key);
+  openModal('modalConfirmDelete');
+};
+
+window.deleteOutlet = async function(key) {
+  await window.dbDelete(`outlets/${key}`);
+  closeModal('modalConfirmDelete');
+  showToast('🗑️','Outlet dihapus');
+};
+
+// ============ DIVISI CRUD ============
+window.openAddDivisi = function(outletKey, outletName) {
+  document.getElementById('addDivisiOutletKey').value = outletKey;
+  document.getElementById('addDivisiOutletLabel').textContent = outletName;
+  document.getElementById('inputDivisiName').value='';
+  document.getElementById('inputDivisiLink').value='';
+  openModal('modalAddDivisi');
+};
+
+window.addDivisi = async function() {
+  const outletKey = document.getElementById('addDivisiOutletKey').value;
+  const name = document.getElementById('inputDivisiName').value.trim();
+  const link = document.getElementById('inputDivisiLink').value.trim();
+  if (!name) { showToast('⚠️','Nama divisi wajib diisi'); return; }
+  const key = uid();
+  await window.dbSet(`outlets/${outletKey}/divisi/${key}`, { name, link });
+  closeModal('modalAddDivisi');
+  showToast('✅', `Divisi "${name}" ditambah`);
+  setTimeout(()=>{ const el=document.getElementById('exp_'+outletKey); if(el&&!el.classList.contains('open')){el.classList.add('open'); const btn=el.previousElementSibling.querySelector('.expand-btn'); if(btn) btn.textContent='▲ Divisi';} },100);
+};
+
+window.openEditDivisi = function(outletKey, divKey) {
+  const d = (window._outlets[outletKey]?.divisi||{})[divKey];
+  if (!d) return;
+  document.getElementById('editDivisiOutletKey').value = outletKey;
+  document.getElementById('editDivisiKey').value = divKey;
+  document.getElementById('editDivisiName').value = d.name;
+  document.getElementById('editDivisiLink').value = d.link||'';
+  openModal('modalEditDivisi');
+};
+
+window.saveEditDivisi = async function() {
+  const outletKey = document.getElementById('editDivisiOutletKey').value;
+  const divKey = document.getElementById('editDivisiKey').value;
+  const name = document.getElementById('editDivisiName').value.trim();
+  const link = document.getElementById('editDivisiLink').value.trim();
+  if (!name) { showToast('⚠️','Nama divisi wajib diisi'); return; }
+  await window.dbUpdate(`outlets/${outletKey}/divisi/${divKey}`, { name, link });
+  closeModal('modalEditDivisi');
+  showToast('✅','Divisi diupdate');
+};
+
+window.confirmDeleteDivisi = function(outletKey, divKey, name) {
+  document.getElementById('confirmDeleteMsg').textContent = `Hapus divisi "${name}"?`;
+  document.getElementById('confirmDeleteBtn').onclick = () => deleteDivisi(outletKey, divKey);
+  openModal('modalConfirmDelete');
+};
+
+window.deleteDivisi = async function(outletKey, divKey) {
+  await window.dbDelete(`outlets/${outletKey}/divisi/${divKey}`);
+  closeModal('modalConfirmDelete');
+  showToast('🗑️','Divisi dihapus');
+};
+
+// ============ PASSWORD ============
+window.changePassword = async function() {
+  const old = document.getElementById('oldPass').value;
+  const nw = document.getElementById('newPass').value;
+  const cf = document.getElementById('confirmPass').value;
+  const err = document.getElementById('passError');
+  err.classList.remove('show');
+  const admin = await window.dbGet('admin');
+  if (old !== admin.password) { err.textContent='Password lama salah.'; err.classList.add('show'); return; }
+  if (nw.length < 6) { err.textContent='Password baru minimal 6 karakter.'; err.classList.add('show'); return; }
+  if (nw !== cf) { err.textContent='Konfirmasi tidak cocok.'; err.classList.add('show'); return; }
+  await window.dbUpdate('admin', { password: nw });
+  closeModal('modalChangePass');
+  document.getElementById('oldPass').value='';
+  document.getElementById('newPass').value='';
+  document.getElementById('confirmPass').value='';
+  showToast('✅','Password berhasil diubah');
+};
+
+// ============ MODAL ============
+window.openModal = (id) => document.getElementById(id).classList.add('open');
+window.closeModal = (id) => document.getElementById(id).classList.remove('open');
+document.querySelectorAll('.modal-overlay').forEach(mo => {
+  mo.addEventListener('click', e => { if(e.target===mo) mo.classList.remove('open'); });
+});
+
+// ============ TOAST ============
+let _tt;
+window.showToast = function(icon, msg) {
+  const t = document.getElementById('toast');
+  document.getElementById('toastIcon').textContent = icon;
+  document.getElementById('toastText').textContent = msg;
+  t.classList.add('show');
+  clearTimeout(_tt);
+  _tt = setTimeout(() => t.classList.remove('show'), 3200);
+};
+
+// ============ UTILS ============
+window.uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+window.esc = s => s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;') : '';
+
+// BOOT
+bootApp();
+</script>
+</body>
+</html>
